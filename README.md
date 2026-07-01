@@ -3,9 +3,38 @@
 [![CI](https://github.com/PlatformStackPulse/tf-atom-sns-topic-subscription-aws/actions/workflows/ci.yml/badge.svg)](https://github.com/PlatformStackPulse/tf-atom-sns-topic-subscription-aws/actions/workflows/ci.yml)
 ![Terraform](https://img.shields.io/badge/terraform-%3E%3D1.6.0-blueviolet)
 
-## Purpose
+Terraform atom that subscribes an endpoint (SQS queue, Lambda function, email, HTTP/S, SMS, or application) to an AWS SNS topic, with optional message filtering and raw message delivery.
 
-Terraform atom: AWS SNS Topic Subscription - subscribes an endpoint to a topic.
+## Features
+
+- Creates a single `aws_sns_topic_subscription` wiring an endpoint to an SNS topic.
+- Validates the `protocol` against the full set of SNS protocols (`sqs`, `lambda`, `email`, `email-json`, `https`, `http`, `sms`, `application`).
+- Optional JSON `filter_policy` for server-side message filtering.
+- Optional `raw_message_delivery` to strip the SNS envelope for SQS/HTTP endpoints.
+- `enabled` toggle (via the tf-label context) to create zero resources when disabled.
+- tf-label context chaining for consistent naming and tagging across modules.
+
+## Usage
+
+```hcl
+module "sns_subscription" {
+  source = "git::https://github.com/PlatformStackPulse/tf-atom-sns-topic-subscription-aws.git?ref=v1.0.0"
+
+  namespace = "eg"
+  stage     = "prod"
+  name      = "orders"
+
+  topic_arn = aws_sns_topic.orders.arn
+  protocol  = "sqs"
+  endpoint  = aws_sqs_queue.orders.arn
+
+  # optional
+  raw_message_delivery = true
+  filter_policy = jsonencode({
+    eventType = ["order_placed", "order_shipped"]
+  })
+}
+```
 
 ## Module Documentation
 
@@ -70,3 +99,22 @@ Terraform atom: AWS SNS Topic Subscription - subscribes an endpoint to a topic.
 | <a name="output_enabled"></a> [enabled](#output\_enabled) | Whether the module is enabled |
 | <a name="output_id"></a> [id](#output\_id) | ID of the subscription |
 <!-- END_TF_DOCS -->
+
+## Tests
+
+Unit tests use the Terraform `test` framework with a mock AWS provider (no real AWS calls, `plan`-only):
+
+```bash
+terraform init -backend=false
+terraform test -test-directory=tests/unit
+# or via the Makefile
+make test-unit
+```
+
+Integration tests (require real AWS credentials) live under `tests/integration`:
+
+```bash
+terraform test -test-directory=tests/integration
+# or
+make test-integration
+```
